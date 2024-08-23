@@ -26,8 +26,9 @@ export default function Chatbot() {
   return (
     <div className="flex flex-col h-[90vh] w-[1000px] mx-auto bg-white rounded-lg shadow-2xl">
       {/* Header */}
-      <header className="w-full bg-[#1E293B] text-white py-4 px-6">
+      <header className="flex items-center justify-between w-full bg-[#1E293B] text-white py-4 px-6">
         <h1 className="text-2xl font-bold">Department of Justice Chatbot</h1>
+        <UserButton />
       </header>
 
       <div className="flex flex-1 overflow-hidden">
