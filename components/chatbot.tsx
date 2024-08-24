@@ -10,7 +10,7 @@ import NewChatPage from "@/components/newChatPage";
 import parse from 'html-react-parser';
 
 // Function to convert Markdown-like notations to HTML
-const formatText = (text) => {
+const formatText = (text:string):string => {
   if (!text) return '';
 
   // Replace **bold text** with <strong>bold text</strong>
@@ -125,7 +125,7 @@ export default function Chatbot() {
     }
   };
 
-  const handleChatSelect = (chatId) => {
+  const handleChatSelect = (chatId:any) => {
     setCurrentChat(chatId);
     fetchChatMessages(chatId);
   };
@@ -201,7 +201,7 @@ export default function Chatbot() {
 
         <main className="flex-1 flex flex-col overflow-hidden rounded-r-lg">
           {showNewChatPage ? (
-            <NewChatPage onStartNewChat={(message) => console.log('New chat started with message:', message)} />
+            <NewChatPage onStartNewChat={(message:any) => console.log('New chat started with message:', message)} />
           ) : showSettings ? (
             <SettingsPage />
           ) : (
