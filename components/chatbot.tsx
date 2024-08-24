@@ -1,68 +1,154 @@
-"use client";
+"use client"
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { HiX as XIcon } from 'react-icons/hi';
 import { FiMessageCircle as MessageCircleIcon, FiCircle as CircleIcon, FiSettings as SettingsIcon } from 'react-icons/fi';
+import { FaPlus } from 'react-icons/fa';
 import { UserButton, useUser } from "@clerk/nextjs";
-import SettingsPage from "@/components/settingsPage"; 
-import Link from "next/link";
+import SettingsPage from "@/components/settingsPage";
+import NewChatPage from "@/components/newChatPage";
+import parse from 'html-react-parser';
 
+// Function to convert Markdown-like notations to HTML
+const formatText = (text) => {
+  if (!text) return '';
+
+  // Replace **bold text** with <strong>bold text</strong>
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+  // Replace *italic text* with <em>italic text</em>
+  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+  // Replace newlines with <br> tags
+  text = text.replace(/\n/g, '<br>');
+
+  // Replace multiple spaces with a single space
+  text = text.replace(/\s{2,}/g, ' ');
+
+  return text;
+};
 
 export default function Chatbot() {
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-
-  const handleChatHistoryToggle = () => {
-    setShowChatHistory(!showChatHistory);
-  };
-
-  const handleSettingsToggle = () => {
-    setShowSettings(!showSettings);
-  };
-
-  // Saving email of user
-  const { user } = useUser();
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [currentChat, setCurrentChat] = useState(null);
+  const [userInput, setUserInput] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [showNewChatPage, setShowNewChatPage] = useState(false);
+
+  // const handleNewChatClick = () => {
+  //   setShowNewChatPage(true);
+  // };
+
+  const { user } = useUser();
 
   useEffect(() => {
     if (user && user.emailAddresses.length > 0) {
       const email = user.emailAddresses[0].emailAddress;
       setUserEmail(email);
+    }
+  }, [user]);
 
-      fetch('/api/save-email', {
+  useEffect(() => {
+    if (userEmail) {
+      fetchChatHistory();
+    }
+  }, [userEmail]);
+
+  const fetchChatHistory = async () => {
+    try {
+      console.log('Fetching chat history with email:', userEmail);
+      const res = await fetch('https://doj-backend.onrender.com/api/get-initial-chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
-      }).catch(err => console.error('Error saving email:', err));
-    }
-  }, [user]);
-
-  // Question submission
-  const [userInput, setUserInput] = useState("");
-
-  const handleQuestionSubmit = async () => {
-    if (userInput.trim()) {
-      try {
-        const res = await fetch('http://192.168.43.151:4000/api/save-chat/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ question: userInput, email: userEmail, chatId: "123" }),
-        });
-        console.log(res)
-        const data = await res.json()
-        console.log(data)
-        setUserInput(""); // Clear input after submission
-      } catch (err) {
-        console.error('Error saving question:', err);
+        body: JSON.stringify({ email: userEmail }),
+      });
+      console.log(res);
+      const data = await res.json();
+      console.log(data);
+      setChatHistory(data); // Store all the data including questions
+      if (data.length > 0) {
+        setCurrentChat(data[0].chatId);
+        fetchChatMessages(data[0].chatId);
       }
+    } catch (err) {
+      console.error('Error fetching chat history:', err);
     }
   };
 
+  const fetchChatMessages = async (chatId: any) => {
+    try {
+      const res = await fetch(`https://doj-backend.onrender.com/api/get-chat-messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: userEmail, chatId: currentChat }),
+      });
+      console.log(res);
+      if (!res.ok) throw new Error('Failed to fetch chat messages');
+      let data = await res.json();
+
+      // Format the response text
+      data = data.map((message: any) => ({
+        ...message,
+        formattedAnswer: formatText(`Q: ${message.question}\nA: ${message.answer}`),
+      }));
+
+      setChatMessages(data);
+    } catch (err) {
+      console.error('Error fetching chat messages:', err);
+    }
+  };
+
+  const handleQuestionSubmit = async () => {
+    try {
+      const res = await fetch('https://doj-backend.onrender.com/api/savechat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question: userInput, email: userEmail, chatId: currentChat }),
+      });
+      console.log(res.json);
+      if (!res.ok) throw new Error('Failed to save chat');
+      const data = await res.json();
+      console.log(data.response);
+      setUserInput("");
+      fetchChatMessages(currentChat);
+    } catch (err) {
+      console.error('Error saving question:', err);
+    }
+  };
+
+  const handleChatSelect = (chatId) => {
+    setCurrentChat(chatId);
+    fetchChatMessages(chatId);
+  };
+  
+
+  const handleNewChatClick = () => {
+    setShowNewChatPage(true);
+    setShowChatHistory(false); // Close chat history if needed
+    setShowSettings(false); // Close settings if needed
+  };
+  
+  const handleChatHistoryClick = () => {
+    setShowChatHistory(!showChatHistory);
+    setShowNewChatPage(false); // Close new chat page if needed
+    setShowSettings(false); // Close settings if needed
+  };
+  
+  const handleSettingsClick = () => {
+    setShowSettings(!showSettings);
+    setShowNewChatPage(false); // Close new chat page if needed
+    setShowChatHistory(false); // Close chat history if needed
+  };
+  
   return (
     <div className="flex flex-col h-[90vh] w-[1000px] mx-auto bg-[#FFFFFF] rounded-lg shadow-2xl">
       <header className="flex items-center justify-between w-full bg-[#FF9933] text-white py-4 px-6 rounded-t-lg">
@@ -71,157 +157,80 @@ export default function Chatbot() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-60 bg-gray-100 p-4 space-y-4 rounded-l-lg">
-          <div className="flex flex-col space-y-2">
-            <button
-              onClick={handleChatHistoryToggle}
-              className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-            >
-              <MessageCircleIcon className="w-5 h-5" />
-              Chat History
-              <span className={`transition-transform ${showChatHistory ? "rotate-180" : ""}`}>
-                ▼
-              </span>
-            </button>
-            {showChatHistory && (
-              <div className="space-y-2 mt-4">
-                <Link
-                  href="#"
-                  className="flex items-center gap-2 text-[#1E293B]/70 hover:text-[#1E293B] rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-                  prefetch={false}
-                >
-                  <CircleIcon className="w-3 h-3" />
-                  Previous Chat 1
-                </Link>
-                <Link
-                  href="#"
-                  className="flex items-center gap-2 text-[#1E293B]/70 hover:text-[#1E293B] rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-                  prefetch={false}
-                >
-                  <CircleIcon className="w-3 h-3" />
-                  Previous Chat 2
-                </Link>
-                <Link
-                  href="#"
-                  className="flex items-center gap-2 text-[#1E293B]/70 hover:text-[#1E293B] rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-                  prefetch={false}
-                >
-                  <CircleIcon className="w-3 h-3" />
-                  Previous Chat 3
-                </Link>
+      <aside className="w-60 bg-gray-100 p-4 space-y-4 rounded-l-lg">
+        <button
+          onClick={handleNewChatClick}
+          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
+        >
+          <FaPlus className="w-5 h-5" />
+          New Chat
+        </button>
+        <button
+          onClick={handleChatHistoryClick}
+          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
+        >
+          <MessageCircleIcon className="w-5 h-5" />
+          Chat History
+          <span className={`transition-transform ${showChatHistory ? "rotate-180" : ""}`}>
+            ▼
+          </span>
+        </button>
+        {showChatHistory && (
+          <div className="space-y-2 mt-4">
+            {chatHistory.map(chat => (
+              <div
+                key={chat.chatId}
+                className="bg-gray-100 rounded-md p-3 mb-2 shadow-lg hover:bg-gray-200 cursor-pointer"
+                onClick={() => handleChatSelect(chat.chatId)}
+              >
+                <CircleIcon className="w-3 h-3 inline-block mr-2" />
+                {chat.question}
               </div>
-            )}
-            <button
-              onClick={handleSettingsToggle}
-              className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-            >
-              <SettingsIcon className="w-5 h-5" />
-              Settings
-            </button>
+            ))}
           </div>
-        </aside>
+        )}
+        <button
+          onClick={handleSettingsClick}
+          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
+        >
+          <SettingsIcon className="w-5 h-5" />
+          Settings
+        </button>
+      </aside>
+
 
         <main className="flex-1 flex flex-col overflow-hidden rounded-r-lg">
-          {showSettings ? (
+          {showNewChatPage ? (
+            <NewChatPage onStartNewChat={(message) => console.log('New chat started with message:', message)} />
+          ) : showSettings ? (
             <SettingsPage />
           ) : (
             <div className="flex flex-col flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Your chat bubbles and other components */}
-              <div className="flex items-start gap-4 bg-white p-4 rounded-lg shadow-lg">
-                <div className="rounded-full w-10 h-10 bg-[#475569] flex items-center justify-center text-2xl text-white">
-                  {/* Avatar or Icon */}
-                </div>
-                <div className="flex-1 space-y-2">
-                  <p className="text-lg font-medium text-[#1E293B]">
-                    Hello! I'm the Department of Justice chatbot. How can I assist you today?
-                  </p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="hover:bg-gray-200 focus-visible:bg-gray-200 text-[#1E293B] bg-white/50 hover:bg-white/70"
-                  >
-                    Judge Appointments
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="hover:bg-gray-200 focus-visible:bg-gray-200 text-[#1E293B] bg-white/50 hover:bg-white/70"
-                  >
-                    Case Status
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="hover:bg-gray-200 focus-visible:bg-gray-200 text-[#1E293B] bg-white/50 hover:bg-white/70"
-                  >
-                    Livestreams
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="hover:bg-gray-200 focus-visible:bg-gray-200 text-[#1E293B] bg-white/50 hover:bg-white/70"
-                  >
-                    eCourts
-                  </Button>
-
+              {chatMessages.map((message, index) => (
+                <div key={index} className={`flex items-start gap-4 bg-white p-4 rounded-lg shadow-lg ${message.from === 'bot' ? 'bg-gray-100' : ''}`}>
+                  <div className="flex-1 space-y-2">
+                    <p className="text-gray-800">{parse(message.formattedAnswer)}</p>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-4 bg-white p-4 rounded-lg shadow-lg">
-                <div className="rounded-full w-10 h-10 bg-[#475569] text-white flex items-center justify-center text-2xl">
-                  👤
-                </div>
-                <div className="flex-1 space-y-2">
-                  <p className="text-lg font-medium text-[#1E293B]">
-                    Hi, I'm interested in learning more about the Department of Justice's judge appointment process.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4 bg-white p-4 rounded-lg shadow-lg">
-                <div className="rounded-full w-10 h-10 bg-[#475569] flex items-center justify-center text-2xl text-white">
-                  {/* Avatar or Icon */}
-                </div>
-                <div className="flex-1 space-y-4">
-                  <p className="text-lg font-medium text-[#1E293B]">
-                    Great, let me provide some information about the judge appointment process at the Department of Justice.
-                    The Department is responsible for nominating and appointing federal judges. The process involves several
-                    steps, including:
-                  </p>
-                  <ul className="list-disc pl-6 space-y-2 text-[#1E293B]">
-                    <li>The President nominates a candidate for a federal judgeship.</li>
-                    <li>
-                      The Senate Judiciary Committee holds a hearing to review the nominee's qualifications and background.
-                    </li>
-                    <li>The full Senate then votes to confirm or reject the nomination.</li>
-                    <li>If confirmed, the nominee is appointed to the federal judiciary.</li>
-                  </ul>
-                  <p className="text-[#1E293B]">
-                    You can find more detailed information about the judge appointment process on the Department of Justice
-                    website. Let me know if you have any other questions!
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
           )}
-
-          <div className="mt-auto w-full bg-white p-4 rounded-b-lg">
-            <div className="flex items-center gap-2">
+          {!showNewChatPage && !showSettings && (
+            <footer className="flex p-4 bg-gray-100 rounded-b-lg">
               <input
-                type="text" 
-                placeholder="Type your question..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:border-[#1E293B]"
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
+                className="flex-1 bg-white rounded-l-lg border border-gray-300 p-2"
+                placeholder="Ask me anything..."
               />
-              <button
+              <Button
                 onClick={handleQuestionSubmit}
-                className="bg-green-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-green-600"
+                className="bg-[#FF9933] text-white rounded-r-lg p-2"
               >
                 Send
-              </button>
-            </div>
-          </div>
+              </Button>
+            </footer>
+          )}
         </main>
       </div>
     </div>
