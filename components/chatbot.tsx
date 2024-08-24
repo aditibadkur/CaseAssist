@@ -1,38 +1,74 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HiX as XIcon } from 'react-icons/hi';
 import { FiMessageCircle as MessageCircleIcon, FiCircle as CircleIcon, FiSettings as SettingsIcon } from 'react-icons/fi';
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import SettingsPage from "@/components/settingsPage"; // Import the SettingsPage component
 import Link from "next/link";
 
 export default function Chatbot() {
-  // State to manage the visibility of chat history and settings
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Toggle chat history visibility
   const handleChatHistoryToggle = () => {
     setShowChatHistory(!showChatHistory);
   };
 
-  // Toggle settings visibility
   const handleSettingsToggle = () => {
     setShowSettings(!showSettings);
   };
+ 
+  // Saving email of user
+  const { user } = useUser();
+  const [userEmail, setUserEmail] = useState("");
+
+  useEffect(() => {
+    if (user && user.emailAddresses.length > 0) {
+      const email = user.emailAddresses[0].emailAddress;
+      setUserEmail(email);
+
+      fetch('/api/save-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      }).catch(err => console.error('Error saving email:', err));
+    }
+  }, [user]);
+
+    // Question submission
+    const [userInput, setUserInput] = useState("");
+
+    const handleQuestionSubmit = async () => {
+      if (userInput.trim()) {
+        try {
+          await fetch('/api/save-question', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ question: userInput, email: userEmail }),
+          });
+          setUserInput(""); // Clear input after submission
+        } catch (err) {
+          console.error('Error saving question:', err);
+        }
+      }
+    };
+  
 
   return (
     <div className="flex flex-col h-[90vh] w-[1000px] mx-auto bg-white rounded-lg shadow-2xl">
-      {/* Header */}
       <header className="flex items-center justify-between w-full bg-[#1E293B] text-white py-4 px-6">
         <h1 className="text-2xl font-bold">Department of Justice Chatbot</h1>
         <UserButton />
+        <span>{userEmail}</span>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
         <aside className="w-60 bg-gray-100 p-4 space-y-4">
           <div className="flex flex-col space-y-2">
             <button
@@ -83,7 +119,6 @@ export default function Chatbot() {
           </div>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 overflow-auto p-6">
           {showSettings ? (
             <SettingsPage />
@@ -162,6 +197,18 @@ export default function Chatbot() {
                     website. Let me know if you have any other questions!
                   </p>
                 </div>
+              </div>
+              <div className="flex items-center space-x-4 mt-6">
+                <Input
+                  type="text"
+                  placeholder="Ask your question..."
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={handleQuestionSubmit} className="bg-[#1E293B] text-white">
+                  Submit
+                </Button>
               </div>
             </div>
           )}
