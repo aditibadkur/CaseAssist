@@ -5,7 +5,6 @@ import Link from "next/link";
 export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 text-center">
-      {/* Header */}
       <header className="mb-8">
         <h1 className="text-4xl font-bold text-[#1E293B]">
           Welcome to Our Platform
@@ -15,7 +14,6 @@ export default function Home() {
         </p>
       </header>
       
-      {/* Buttons */}
       <div className="flex flex-col gap-4">
         <Link href="/sign-up">
           <Button className="bg-[#1E293B] text-white hover:bg-[#1E293B]/80">

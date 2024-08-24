@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { HiX as XIcon } from 'react-icons/hi';
 import { FiMessageCircle as MessageCircleIcon, FiCircle as CircleIcon, FiSettings as SettingsIcon } from 'react-icons/fi';
 import { UserButton, useUser } from "@clerk/nextjs";
-import SettingsPage from "@/components/settingsPage"; // Import the SettingsPage component
+import SettingsPage from "@/components/settingsPage"; 
 import Link from "next/link";
+
 
 export default function Chatbot() {
   const [showChatHistory, setShowChatHistory] = useState(false);
@@ -19,7 +20,7 @@ export default function Chatbot() {
   const handleSettingsToggle = () => {
     setShowSettings(!showSettings);
   };
- 
+
   // Saving email of user
   const { user } = useUser();
   const [userEmail, setUserEmail] = useState("");
@@ -39,41 +40,42 @@ export default function Chatbot() {
     }
   }, [user]);
 
-    // Question submission
-    const [userInput, setUserInput] = useState("");
+  // Question submission
+  const [userInput, setUserInput] = useState("");
 
-    const handleQuestionSubmit = async () => {
-      if (userInput.trim()) {
-        try {
-          await fetch('/api/save-question', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ question: userInput, email: userEmail }),
-          });
-          setUserInput(""); // Clear input after submission
-        } catch (err) {
-          console.error('Error saving question:', err);
-        }
+  const handleQuestionSubmit = async () => {
+    if (userInput.trim()) {
+      try {
+        const res = await fetch('http://192.168.43.151:4000/api/save-chat/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ question: userInput, email: userEmail, chatId: "123" }),
+        });
+        console.log(res)
+        const data = await res.json()
+        console.log(data)
+        setUserInput(""); // Clear input after submission
+      } catch (err) {
+        console.error('Error saving question:', err);
       }
-    };
-  
+    }
+  };
 
   return (
-    <div className="flex flex-col h-[90vh] w-[1000px] mx-auto bg-white rounded-lg shadow-2xl">
-      <header className="flex items-center justify-between w-full bg-[#1E293B] text-white py-4 px-6">
+    <div className="flex flex-col h-[90vh] w-[1000px] mx-auto bg-[#FFFFFF] rounded-lg shadow-2xl">
+      <header className="flex items-center justify-between w-full bg-[#FF9933] text-white py-4 px-6 rounded-t-lg">
         <h1 className="text-2xl font-bold">Department of Justice Chatbot</h1>
         <UserButton />
-        <span>{userEmail}</span>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-60 bg-gray-100 p-4 space-y-4">
+        <aside className="w-60 bg-gray-100 p-4 space-y-4 rounded-l-lg">
           <div className="flex flex-col space-y-2">
             <button
               onClick={handleChatHistoryToggle}
-              className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#F1F5F9]/70"
+              className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
             >
               <MessageCircleIcon className="w-5 h-5" />
               Chat History
@@ -85,7 +87,7 @@ export default function Chatbot() {
               <div className="space-y-2 mt-4">
                 <Link
                   href="#"
-                  className="flex items-center gap-2 text-[#1E293B]/70 hover:text-[#1E293B] rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#F1F5F9]/70"
+                  className="flex items-center gap-2 text-[#1E293B]/70 hover:text-[#1E293B] rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
                   prefetch={false}
                 >
                   <CircleIcon className="w-3 h-3" />
@@ -93,7 +95,7 @@ export default function Chatbot() {
                 </Link>
                 <Link
                   href="#"
-                  className="flex items-center gap-2 text-[#1E293B]/70 hover:text-[#1E293B] rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#F1F5F9]/70"
+                  className="flex items-center gap-2 text-[#1E293B]/70 hover:text-[#1E293B] rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
                   prefetch={false}
                 >
                   <CircleIcon className="w-3 h-3" />
@@ -101,7 +103,7 @@ export default function Chatbot() {
                 </Link>
                 <Link
                   href="#"
-                  className="flex items-center gap-2 text-[#1E293B]/70 hover:text-[#1E293B] rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#F1F5F9]/70"
+                  className="flex items-center gap-2 text-[#1E293B]/70 hover:text-[#1E293B] rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
                   prefetch={false}
                 >
                   <CircleIcon className="w-3 h-3" />
@@ -111,7 +113,7 @@ export default function Chatbot() {
             )}
             <button
               onClick={handleSettingsToggle}
-              className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#F1F5F9]/70"
+              className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
             >
               <SettingsIcon className="w-5 h-5" />
               Settings
@@ -119,48 +121,50 @@ export default function Chatbot() {
           </div>
         </aside>
 
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 flex flex-col overflow-hidden rounded-r-lg">
           {showSettings ? (
             <SettingsPage />
           ) : (
-            <div className="space-y-6">
+            <div className="flex flex-col flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Your chat bubbles and other components */}
               <div className="flex items-start gap-4 bg-white p-4 rounded-lg shadow-lg">
                 <div className="rounded-full w-10 h-10 bg-[#475569] flex items-center justify-center text-2xl text-white">
-                  
+                  {/* Avatar or Icon */}
                 </div>
                 <div className="flex-1 space-y-2">
                   <p className="text-lg font-medium text-[#1E293B]">
                     Hello! I'm the Department of Justice chatbot. How can I assist you today?
                   </p>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="hover:bg-[#1E293B]/20 focus-visible:bg-[#1E293B]/20 text-[#1E293B] bg-white/50 hover:bg-white/70"
-                    >
-                      Judge Appointments
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="hover:bg-[#1E293B]/20 focus-visible:bg-[#1E293B]/20 text-[#1E293B] bg-white/50 hover:bg-white/70"
-                    >
-                      Case Status
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="hover:bg-[#1E293B]/20 focus-visible:bg-[#1E293B]/20 text-[#1E293B] bg-white/50 hover:bg-white/70"
-                    >
-                      Livestreams
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="hover:bg-[#1E293B]/20 focus-visible:bg-[#1E293B]/20 text-[#1E293B] bg-white/50 hover:bg-white/70"
-                    >
-                      eCourts
-                    </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="hover:bg-gray-200 focus-visible:bg-gray-200 text-[#1E293B] bg-white/50 hover:bg-white/70"
+                  >
+                    Judge Appointments
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="hover:bg-gray-200 focus-visible:bg-gray-200 text-[#1E293B] bg-white/50 hover:bg-white/70"
+                  >
+                    Case Status
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="hover:bg-gray-200 focus-visible:bg-gray-200 text-[#1E293B] bg-white/50 hover:bg-white/70"
+                  >
+                    Livestreams
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="hover:bg-gray-200 focus-visible:bg-gray-200 text-[#1E293B] bg-white/50 hover:bg-white/70"
+                  >
+                    eCourts
+                  </Button>
+
                   </div>
                 </div>
               </div>
@@ -176,7 +180,7 @@ export default function Chatbot() {
               </div>
               <div className="flex items-start gap-4 bg-white p-4 rounded-lg shadow-lg">
                 <div className="rounded-full w-10 h-10 bg-[#475569] flex items-center justify-center text-2xl text-white">
-                  
+                  {/* Avatar or Icon */}
                 </div>
                 <div className="flex-1 space-y-4">
                   <p className="text-lg font-medium text-[#1E293B]">
@@ -198,20 +202,26 @@ export default function Chatbot() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4 mt-6">
-                <Input
-                  type="text"
-                  placeholder="Ask your question..."
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  className="flex-1"
-                />
-                <Button onClick={handleQuestionSubmit} className="bg-[#1E293B] text-white">
-                  Submit
-                </Button>
-              </div>
             </div>
           )}
+
+          <div className="mt-auto w-full bg-white p-4 rounded-b-lg">
+            <div className="flex items-center gap-2">
+              <input
+                type="text" 
+                placeholder="Type your question..."
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:border-[#1E293B]"
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+              />
+              <button
+                onClick={handleQuestionSubmit}
+                className="bg-green-500 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-green-600"
+              >
+                Send
+              </button>
+            </div>
+          </div>
         </main>
       </div>
     </div>
