@@ -10,7 +10,8 @@ import NewChatPage from "@/components/newChatPage";
 import parse from 'html-react-parser';
 
 // Function to convert Markdown-like notations to HTML
-const formatText = (text:string):string => {
+// Function to convert Markdown-like notations to HTML
+const formatText = (text: string): string => {
   if (!text) return '';
 
   // Replace **bold text** with <strong>bold text</strong>
@@ -27,6 +28,7 @@ const formatText = (text:string):string => {
 
   return text;
 };
+
 
 export default function Chatbot() {
   const [showChatHistory, setShowChatHistory] = useState(false);
