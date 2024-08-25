@@ -8,6 +8,7 @@ import { UserButton, useUser } from "@clerk/nextjs";
 import SettingsPage from "@/components/settingsPage";
 import NewChatPage from "@/components/newChatPage";
 import parse from 'html-react-parser';
+import { AiOutlineLoading3Quarters as LoadingIcon } from "react-icons/ai";
 
 interface Chat {
   chatId: number;
@@ -57,6 +58,7 @@ export default function Chatbot() {
   const [showNewChatPage, setShowNewChatPage] = useState(false);
   const [lastChatId, setLastChatId] = useState<number | null>(null); // Track the last chat ID
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null); 
+  const [loading, setLoading] = useState(false);
 
   const { user } = useUser();
 
@@ -156,6 +158,7 @@ export default function Chatbot() {
       const newQuestion = userInput;
       setPendingQuestion(newQuestion);
       setUserInput("");
+      setLoading(true); // Start loading
 
       if (showNewChatPage) {
         setShowNewChatPage(false); // Hide the NewChatPage after the first question
@@ -172,9 +175,10 @@ export default function Chatbot() {
       if (!res.ok) throw new Error("Failed to save chat");
       const data = await res.json();
       console.log(data);
-      fetchChatMessages(currentChat!);
+      fetchChatMessages(currentChat!);setLoading(false); // Stop loading once the answer is received
     } catch (err) {
       console.error("Error saving question:", err);
+      setLoading(false); // Stop loading in case of error
     }
   };
 
@@ -278,6 +282,12 @@ export default function Chatbot() {
       </aside>
 
         <main className="flex-1 p-6 overflow-y-auto">
+        {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <LoadingIcon className="animate-spin h-10 w-10 text-[#FF9933]" />
+            </div>
+          ) : (
+            <>
         {showNewChatPage && <NewChatPage onStartNewChat={() => setShowNewChatPage(false)} />}
           {showSettings && <SettingsPage />}
           {!showSettings && (
@@ -320,6 +330,7 @@ export default function Chatbot() {
                 </Button>
               </div>
             </div>
+            )}</>
           )}
         </main>
       </div>
