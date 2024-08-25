@@ -12,7 +12,9 @@ import parse from 'html-react-parser';
 interface Chat {
   chatId: number;
   question: string;
+  preview: string; 
 }
+
 
 interface ChatMessage {
   question: string;
@@ -53,10 +55,15 @@ export default function Chatbot() {
   const [userInput, setUserInput] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [showNewChatPage, setShowNewChatPage] = useState(false);
-  const [nextChatId, setNextChatId] = useState<number>(1); // Initialize with 1 or the next available ID
-  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null); // State for pending questions
+  const [lastChatId, setLastChatId] = useState<number | null>(null); // Track the last chat ID
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null); 
 
   const { user } = useUser();
+
+  // Generate a random 6-digit chat ID
+  const generateRandomChatId = () => {
+    return Math.floor(100000 + Math.random() * 900000); // Random 6-digit number
+  };
 
   useEffect(() => {
     if (user && user.emailAddresses.length > 0) {
@@ -71,6 +78,21 @@ export default function Chatbot() {
     }
   }, [userEmail]);
 
+  const startNewChat = async (chatId: number) => {
+    try {
+      await fetch('https://doj-backend.onrender.com/api/start-new-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: userEmail, chatId }),
+      });
+    } catch (err) {
+      console.error('Error starting new chat:', err);
+    }
+  };
+  
+
   const fetchChatHistory = async () => {
     try {
       const res = await fetch('https://doj-backend.onrender.com/api/get-initial-chat', {
@@ -81,27 +103,31 @@ export default function Chatbot() {
         body: JSON.stringify({ email: userEmail }),
       });
       const data = await res.json();
-      
+  
       const formattedData = data.map((item: any) => ({
         ...item,
         chatId: parseInt(item.chatId, 10),
+        preview: item.question.length > 30 ? `${item.question.slice(0, 30)}...` : item.question, // Create a preview
       }));
-      
+  
       setChatHistory(formattedData);
-      
+  
       if (formattedData.length > 0) {
-        const lastChatId = formattedData[formattedData.length - 1].chatId;
-        setCurrentChat(lastChatId);
-        setNextChatId(lastChatId + 1);
-        fetchChatMessages(lastChatId);
+        const lastChat = formattedData[formattedData.length - 1];
+        setLastChatId(lastChat.chatId); // Update the last chat ID
+        setCurrentChat(lastChat.chatId);
+        fetchChatMessages(lastChat.chatId);
       } else {
-        setNextChatId(1);
+        setLastChatId(1); // Initialize with 1 if no chats exist
+        const initialChatId = 1; // Start from 1 or the next available ID
+        setCurrentChat(initialChatId);
+        await startNewChat(initialChatId);
       }
     } catch (err) {
       console.error('Error fetching chat history:', err);
     }
   };
-
+  
   const fetchChatMessages = async (chatId: number) => {
     try {
       const res = await fetch(`https://doj-backend.onrender.com/api/get-chat-messages`, {
@@ -109,11 +135,11 @@ export default function Chatbot() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: userEmail, chatId }),
+        body: JSON.stringify({ email: userEmail, chatId: chatId }),
       });
       if (!res.ok) throw new Error('Failed to fetch chat messages');
       let data = await res.json();
-
+      console.log(data);
       data = data.map((message: any) => ({
         ...message,
         formattedAnswer: formatText(`${message.answer}`),
@@ -145,6 +171,7 @@ export default function Chatbot() {
       });
       if (!res.ok) throw new Error("Failed to save chat");
       const data = await res.json();
+      console.log(data);
       fetchChatMessages(currentChat!);
     } catch (err) {
       console.error("Error saving question:", err);
@@ -152,37 +179,34 @@ export default function Chatbot() {
   };
 
   const handleNewChatClick = async () => {
-  try {
-    setShowNewChatPage(true);
-    setShowChatHistory(false);
-    setShowSettings(false);
+    try {
+      setShowNewChatPage(true);
+      setShowChatHistory(false);
+      setShowSettings(false);
+  
+      const newChatId = (lastChatId ?? 0) + 1; // Increment from the last chat ID
+      setLastChatId(newChatId); // Update the last chat ID
 
-    // Generate a new chat ID
-    const newChatId = nextChatId;
+      await fetch('https://doj-backend.onrender.com/api/start-new-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: userEmail, chatId: newChatId }),
+      });
 
-    // Save the new chat to the backend
-    await fetch('https://doj-backend.onrender.com/api/start-new-chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email: userEmail, chatId: newChatId }),
-    });
-
-    // Update chat history state
-    setChatHistory(prevHistory => [
-      ...prevHistory,
-      { chatId: newChatId, question: 'New Chat Started' },
-    ]);
-
-    // Clear the chat messages and update the current chat
-    setChatMessages([]);
-    setCurrentChat(newChatId);
-    setNextChatId(newChatId + 1);
-  } catch (err) {
-    console.error('Error starting new chat:', err);
-  }
-};
+      setChatHistory(prevHistory => [
+        ...prevHistory,
+        { chatId: newChatId, question: 'New Chat Started', preview: 'New Chat Started' }, // Ensure preview is provided
+      ]);
+  
+      setChatMessages([]);
+      setCurrentChat(newChatId);
+    } catch (err) {
+      console.error('Error starting new chat:', err);
+    }
+  };
+  
 
 
   const handleChatHistoryClick = () => {
@@ -229,21 +253,21 @@ export default function Chatbot() {
           </span>
         </button>
         {showChatHistory && (
-          <div className="space-y-2 mt-4">
-            {chatHistory.map((chat) => (
-              <div
+          <div className="mt-4">
+            {chatHistory.map(chat => (
+              <button
                 key={chat.chatId}
-                className={`bg-gray-100 rounded-md p-3 mb-2 shadow-lg cursor-pointer hover:bg-gray-200 hover:w-full ${
-                  currentChat === chat.chatId ? "bg-gray-300" : ""
-                }`}
                 onClick={() => handleChatSelect(chat.chatId)}
+                className="w-[300px] flex items-center gap-2 px-3 py-2 text-[#1E293B] hover:bg-[#D1D5DB]/70 rounded-md"
               >
-                <CircleIcon className="w-3 h-3 inline-block mr-2" />
-                {chat.question.length > 25 ? `${chat.question.substring(0, 10)}...` : chat.question}
-              </div>
+                <CircleIcon className="w-5 h-5" />
+                {`${chat.preview}`}
+              </button>
             ))}
+
           </div>
         )}
+
         <button
           onClick={handleSettingsClick}
           className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70 hover:w-full"
