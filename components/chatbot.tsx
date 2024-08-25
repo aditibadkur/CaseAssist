@@ -128,50 +128,62 @@ export default function Chatbot() {
   const handleQuestionSubmit = async () => {
     try {
       const newQuestion = userInput;
-      setPendingQuestion(newQuestion); // Set the pending question
+      setPendingQuestion(newQuestion);
       setUserInput("");
 
+      if (showNewChatPage) {
+        setShowNewChatPage(false); // Hide the NewChatPage after the first question
+      }
+
       // Save the question to the backend
-      const res = await fetch('https://doj-backend.onrender.com/api/savechat', {
-        method: 'POST',
+      const res = await fetch("https://doj-backend.onrender.com/api/savechat", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ question: newQuestion, email: userEmail, chatId: currentChat }),
       });
-      if (!res.ok) throw new Error('Failed to save chat');
+      if (!res.ok) throw new Error("Failed to save chat");
       const data = await res.json();
-      fetchChatMessages(currentChat!); // Fetch messages to get the answer
+      fetchChatMessages(currentChat!);
     } catch (err) {
-      console.error('Error saving question:', err);
+      console.error("Error saving question:", err);
     }
   };
 
   const handleNewChatClick = async () => {
-    try {
-      setShowNewChatPage(true);
-      setShowChatHistory(false);
-      setShowSettings(false);
+  try {
+    setShowNewChatPage(true);
+    setShowChatHistory(false);
+    setShowSettings(false);
 
-      const newChatId = nextChatId;
-  
-      await fetch('https://doj-backend.onrender.com/api/start-new-chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: userEmail, chatId: newChatId }),
-      });
-  
-      setChatHistory(prevHistory => [
-        ...prevHistory,
-        { chatId: newChatId, question: 'New Chat Started' },
-      ]);
-      setNextChatId(newChatId + 1);
-    } catch (err) {
-      console.error('Error starting new chat:', err);
-    }
-  };
+    // Generate a new chat ID
+    const newChatId = nextChatId;
+
+    // Save the new chat to the backend
+    await fetch('https://doj-backend.onrender.com/api/start-new-chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: userEmail, chatId: newChatId }),
+    });
+
+    // Update chat history state
+    setChatHistory(prevHistory => [
+      ...prevHistory,
+      { chatId: newChatId, question: 'New Chat Started' },
+    ]);
+
+    // Clear the chat messages and update the current chat
+    setChatMessages([]);
+    setCurrentChat(newChatId);
+    setNextChatId(newChatId + 1);
+  } catch (err) {
+    console.error('Error starting new chat:', err);
+  }
+};
+
 
   const handleChatHistoryClick = () => {
     setShowChatHistory(!showChatHistory);
@@ -191,58 +203,60 @@ export default function Chatbot() {
   };
 
   return (
-    <div className="flex flex-col h-[90vh] w-[1000px] mx-auto bg-[#FFFFFF] rounded-lg shadow-2xl">
+    <div className="flex flex-col h-[90vh] w-[1000px] mx-auto bg-[#FFFFFF] rounded-2xl shadow-2xl">
       <header className="flex items-center justify-between w-full bg-[#FF9933] text-white py-4 px-6 rounded-t-lg">
         <h1 className="text-2xl font-bold">Department of Justice Chatbot</h1>
         <UserButton />
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-60 bg-gray-100 p-4 space-y-4 rounded-l-lg">
-          <button
-            onClick={handleNewChatClick}
-            className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-          >
-            <FaPlus className="w-5 h-5" />
-            New Chat
-          </button>
-          <button
-            onClick={handleChatHistoryClick}
-            className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-          >
-            <MessageCircleIcon className="w-5 h-5" />
-            Chat History
-            <span className={`transition-transform ${showChatHistory ? "rotate-180" : ""}`}>
-              ▼
-            </span>
-          </button>
-          {showChatHistory && (
-            <div className="space-y-2 mt-4">
-              {chatHistory.map((chat) => (
-                <div
-                  key={chat.chatId}
-                  className={`bg-gray-100 rounded-md p-3 mb-2 shadow-lg cursor-pointer hover:bg-gray-200 ${currentChat === chat.chatId ? "bg-blue-100" : ""}`}
-                  onClick={() => handleChatSelect(chat.chatId)}
-                >
-                  <CircleIcon className="w-3 h-3 inline-block mr-2" />
-                  {chat.question.length > 10 ? `${chat.question.substring(0, 10)}...` : chat.question}
-                </div>
-              ))}
-            </div>
-          )}
-          <button
-            onClick={handleSettingsClick}
-            className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-          >
-            <SettingsIcon className="w-5 h-5" />
-            Settings
-          </button>
-        </aside>
+      <aside className="w-[30%] bg-gray-100 p-4 space-y-4 rounded-l-lg overflow-y-auto">
+        <button
+          onClick={handleNewChatClick}
+          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70 hover:w-full"
+        >
+          <FaPlus className="w-5 h-5" />
+          New Chat
+        </button>
+        <button
+          onClick={handleChatHistoryClick}
+          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70 hover:w-full"
+        >
+          <MessageCircleIcon className="w-5 h-5" />
+          Chat History
+          <span className={`transition-transform ${showChatHistory ? "rotate-180" : ""}`}>
+            ▼
+          </span>
+        </button>
+        {showChatHistory && (
+          <div className="space-y-2 mt-4">
+            {chatHistory.map((chat) => (
+              <div
+                key={chat.chatId}
+                className={`bg-gray-100 rounded-md p-3 mb-2 shadow-lg cursor-pointer hover:bg-gray-200 hover:w-full ${
+                  currentChat === chat.chatId ? "bg-gray-300" : ""
+                }`}
+                onClick={() => handleChatSelect(chat.chatId)}
+              >
+                <CircleIcon className="w-3 h-3 inline-block mr-2" />
+                {chat.question.length > 25 ? `${chat.question.substring(0, 10)}...` : chat.question}
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={handleSettingsClick}
+          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70 hover:w-full"
+        >
+          <SettingsIcon className="w-5 h-5" />
+          Settings
+        </button>
+      </aside>
 
         <main className="flex-1 p-6 overflow-y-auto">
-          {showNewChatPage && <NewChatPage onStartNewChat={handleNewChatClick} />}
+        {showNewChatPage && <NewChatPage onStartNewChat={() => setShowNewChatPage(false)} />}
           {showSettings && <SettingsPage />}
-          {!showNewChatPage && !showSettings && (
+          {!showSettings && (
             <div className="flex flex-col h-full">
               <div className="flex-1 overflow-y-auto">
                 <div className="flex flex-col space-y-4">
@@ -258,15 +272,15 @@ export default function Chatbot() {
                       )}
                     </div>
                   ))}
-                  {pendingQuestion && (
+                  {/* {pendingQuestion && (
                     <div className="bg-blue-100 p-3 rounded-md shadow-lg">
                       {pendingQuestion}
                     </div>
-                  )}
+                  )} */}
                 </div>
               </div>
-
-              <div className="flex items-center p-4 bg-gray-100 border-t border-gray-300">
+              
+              <div className="flex items-center p-4 bg-gray-100">
                 <input
                   type="text"
                   value={userInput}

@@ -3,20 +3,15 @@
 import React from 'react';
 
 type NewChatPageProps = {
-  onStartNewChat: () => void; // This is the expected type for the `onStartNewChat` prop
+  onStartNewChat: () => void;
 };
 
 const NewChatPage: React.FC<NewChatPageProps> = ({ onStartNewChat }) => {
   return (
-    <div className="flex flex-col items-center justify-center h-full p-6">
-      <h2 className="text-2xl font-bold mb-4">Start a New Chat</h2> 
+    <div className="fixed flex flex-col items-center justify-center p-6">
+      <h2 className="text-2xl font-bold">Start a New Chat</h2> 
     </div>
   );
 };
 
 export default NewChatPage;
-
-
-
-// <div className="flex flex-col items-center justify-center h-full p-6">
-// <h2 className="text-2xl font-bold mb-4">Start a New Chat</h2> 
