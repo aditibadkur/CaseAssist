@@ -1,29 +1,22 @@
-"use client"
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+// components/newChatPage.tsx
 
-export default function NewChatPage({ onStartNewChat }) {
-  const [newChatMessage, setNewChatMessage] = useState("");
+import React from 'react';
 
-  const handleStartNewChat = () => {
-    if (newChatMessage.trim()) {
-      onStartNewChat(newChatMessage); // Notify the parent component to handle the new chat
-      setNewChatMessage(""); // Reset the input field
-    }
-  };
+type NewChatPageProps = {
+  onStartNewChat: () => void; // This is the expected type for the `onStartNewChat` prop
+};
 
+const NewChatPage: React.FC<NewChatPageProps> = ({ onStartNewChat }) => {
   return (
     <div className="flex flex-col items-center justify-center h-full p-6">
-      <h2 className="text-2xl font-bold mb-4">Start a New Chat</h2>
-      <input
-        value={newChatMessage}
-        onChange={(e) => setNewChatMessage(e.target.value)}
-        className="w-full max-w-md p-2 border border-gray-300 rounded-lg mb-4"
-        placeholder="Enter your initial message..."
-      />
-      <Button onClick={handleStartNewChat} className="bg-[#FF9933] text-white p-2 rounded-lg">
-        Start Chat
-      </Button>
+      <h2 className="text-2xl font-bold mb-4">Start a New Chat</h2> 
     </div>
   );
-}
+};
+
+export default NewChatPage;
+
+
+
+// <div className="flex flex-col items-center justify-center h-full p-6">
+// <h2 className="text-2xl font-bold mb-4">Start a New Chat</h2> 

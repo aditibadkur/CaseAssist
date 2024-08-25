@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { HiX as XIcon } from 'react-icons/hi';
@@ -9,7 +9,22 @@ import SettingsPage from "@/components/settingsPage";
 import NewChatPage from "@/components/newChatPage";
 import parse from 'html-react-parser';
 
-// Function to convert Markdown-like notations to HTML
+interface Chat {
+  chatId: number;
+  question: string;
+}
+
+interface ChatMessage {
+  question: string;
+  answer: string;
+  formattedAnswer: string;
+}
+
+interface NewChatPageProps {
+  onStartNewChat: () => void;
+}
+
+
 // Function to convert Markdown-like notations to HTML
 const formatText = (text: string): string => {
   if (!text) return '';
@@ -29,20 +44,17 @@ const formatText = (text: string): string => {
   return text;
 };
 
-
 export default function Chatbot() {
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [chatHistory, setChatHistory] = useState([]);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [currentChat, setCurrentChat] = useState(null);
+  const [chatHistory, setChatHistory] = useState<Chat[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [currentChat, setCurrentChat] = useState<number | null>(null);
   const [userInput, setUserInput] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [showNewChatPage, setShowNewChatPage] = useState(false);
-
-  // const handleNewChatClick = () => {
-  //   setShowNewChatPage(true);
-  // };
+  const [nextChatId, setNextChatId] = useState<number>(1); // Initialize with 1 or the next available ID
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null); // State for pending questions
 
   const { user } = useUser();
 
@@ -61,7 +73,6 @@ export default function Chatbot() {
 
   const fetchChatHistory = async () => {
     try {
-      console.log('Fetching chat history with email:', userEmail);
       const res = await fetch('https://doj-backend.onrender.com/api/get-initial-chat', {
         method: 'POST',
         headers: {
@@ -69,36 +80,43 @@ export default function Chatbot() {
         },
         body: JSON.stringify({ email: userEmail }),
       });
-      console.log(res);
       const data = await res.json();
-      console.log(data);
-      setChatHistory(data); // Store all the data including questions
-      if (data.length > 0) {
-        setCurrentChat(data[0].chatId);
-        fetchChatMessages(data[0].chatId);
+      
+      const formattedData = data.map((item: any) => ({
+        ...item,
+        chatId: parseInt(item.chatId, 10),
+      }));
+      
+      setChatHistory(formattedData);
+      
+      if (formattedData.length > 0) {
+        const lastChatId = formattedData[formattedData.length - 1].chatId;
+        setCurrentChat(lastChatId);
+        setNextChatId(lastChatId + 1);
+        fetchChatMessages(lastChatId);
+      } else {
+        setNextChatId(1);
       }
     } catch (err) {
       console.error('Error fetching chat history:', err);
     }
   };
 
-  const fetchChatMessages = async (chatId: any) => {
+  const fetchChatMessages = async (chatId: number) => {
     try {
       const res = await fetch(`https://doj-backend.onrender.com/api/get-chat-messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: userEmail, chatId: currentChat }),
+        body: JSON.stringify({ email: userEmail, chatId }),
       });
-      console.log(res);
       if (!res.ok) throw new Error('Failed to fetch chat messages');
       let data = await res.json();
 
-      // Format the response text
       data = data.map((message: any) => ({
         ...message,
-        formattedAnswer: formatText(`Q: ${message.question}\nA: ${message.answer}`),
+        formattedAnswer: formatText(`${message.answer}`),
       }));
 
       setChatMessages(data);
@@ -109,48 +127,69 @@ export default function Chatbot() {
 
   const handleQuestionSubmit = async () => {
     try {
+      const newQuestion = userInput;
+      setPendingQuestion(newQuestion); // Set the pending question
+      setUserInput("");
+
+      // Save the question to the backend
       const res = await fetch('https://doj-backend.onrender.com/api/savechat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ question: userInput, email: userEmail, chatId: currentChat }),
+        body: JSON.stringify({ question: newQuestion, email: userEmail, chatId: currentChat }),
       });
-      console.log(res.json);
       if (!res.ok) throw new Error('Failed to save chat');
       const data = await res.json();
-      console.log(data.response);
-      setUserInput("");
-      fetchChatMessages(currentChat);
+      fetchChatMessages(currentChat!); // Fetch messages to get the answer
     } catch (err) {
       console.error('Error saving question:', err);
     }
   };
 
-  const handleChatSelect = (chatId:any) => {
+  const handleNewChatClick = async () => {
+    try {
+      setShowNewChatPage(true);
+      setShowChatHistory(false);
+      setShowSettings(false);
+
+      const newChatId = nextChatId;
+  
+      await fetch('https://doj-backend.onrender.com/api/start-new-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: userEmail, chatId: newChatId }),
+      });
+  
+      setChatHistory(prevHistory => [
+        ...prevHistory,
+        { chatId: newChatId, question: 'New Chat Started' },
+      ]);
+      setNextChatId(newChatId + 1);
+    } catch (err) {
+      console.error('Error starting new chat:', err);
+    }
+  };
+
+  const handleChatHistoryClick = () => {
+    setShowChatHistory(!showChatHistory);
+    setShowNewChatPage(false);
+    setShowSettings(false);
+  };
+
+  const handleSettingsClick = () => {
+    setShowSettings(!showSettings);
+    setShowNewChatPage(false);
+    setShowChatHistory(false);
+  };
+
+  const handleChatSelect = (chatId: number) => {
     setCurrentChat(chatId);
     fetchChatMessages(chatId);
   };
-  
 
-  const handleNewChatClick = () => {
-    setShowNewChatPage(true);
-    setShowChatHistory(false); // Close chat history if needed
-    setShowSettings(false); // Close settings if needed
-  };
-  
-  const handleChatHistoryClick = () => {
-    setShowChatHistory(!showChatHistory);
-    setShowNewChatPage(false); // Close new chat page if needed
-    setShowSettings(false); // Close settings if needed
-  };
-  
-  const handleSettingsClick = () => {
-    setShowSettings(!showSettings);
-    setShowNewChatPage(false); // Close new chat page if needed
-    setShowChatHistory(false); // Close chat history if needed
-  };
-  
   return (
     <div className="flex flex-col h-[90vh] w-[1000px] mx-auto bg-[#FFFFFF] rounded-lg shadow-2xl">
       <header className="flex items-center justify-between w-full bg-[#FF9933] text-white py-4 px-6 rounded-t-lg">
@@ -159,79 +198,90 @@ export default function Chatbot() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-      <aside className="w-60 bg-gray-100 p-4 space-y-4 rounded-l-lg">
-        <button
-          onClick={handleNewChatClick}
-          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-        >
-          <FaPlus className="w-5 h-5" />
-          New Chat
-        </button>
-        <button
-          onClick={handleChatHistoryClick}
-          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-        >
-          <MessageCircleIcon className="w-5 h-5" />
-          Chat History
-          <span className={`transition-transform ${showChatHistory ? "rotate-180" : ""}`}>
-            ▼
-          </span>
-        </button>
-        {showChatHistory && (
-          <div className="space-y-2 mt-4">
-            {chatHistory.map(chat => (
-              <div
-                key={chat.chatId}
-                className="bg-gray-100 rounded-md p-3 mb-2 shadow-lg hover:bg-gray-200 cursor-pointer"
-                onClick={() => handleChatSelect(chat.chatId)}
-              >
-                <CircleIcon className="w-3 h-3 inline-block mr-2" />
-                {chat.question}
-              </div>
-            ))}
-          </div>
-        )}
-        <button
-          onClick={handleSettingsClick}
-          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
-        >
-          <SettingsIcon className="w-5 h-5" />
-          Settings
-        </button>
-      </aside>
-
-
-        <main className="flex-1 flex flex-col overflow-hidden rounded-r-lg">
-          {showNewChatPage ? (
-            <NewChatPage onStartNewChat={(message:any) => console.log('New chat started with message:', message)} />
-          ) : showSettings ? (
-            <SettingsPage />
-          ) : (
-            <div className="flex flex-col flex-1 overflow-y-auto p-6 space-y-6">
-              {chatMessages.map((message, index) => (
-                <div key={index} className={`flex items-start gap-4 bg-white p-4 rounded-lg shadow-lg ${message.from === 'bot' ? 'bg-gray-100' : ''}`}>
-                  <div className="flex-1 space-y-2">
-                    <p className="text-gray-800">{parse(message.formattedAnswer)}</p>
-                  </div>
+        <aside className="w-60 bg-gray-100 p-4 space-y-4 rounded-l-lg">
+          <button
+            onClick={handleNewChatClick}
+            className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
+          >
+            <FaPlus className="w-5 h-5" />
+            New Chat
+          </button>
+          <button
+            onClick={handleChatHistoryClick}
+            className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
+          >
+            <MessageCircleIcon className="w-5 h-5" />
+            Chat History
+            <span className={`transition-transform ${showChatHistory ? "rotate-180" : ""}`}>
+              ▼
+            </span>
+          </button>
+          {showChatHistory && (
+            <div className="space-y-2 mt-4">
+              {chatHistory.map((chat) => (
+                <div
+                  key={chat.chatId}
+                  className={`bg-gray-100 rounded-md p-3 mb-2 shadow-lg cursor-pointer hover:bg-gray-200 ${currentChat === chat.chatId ? "bg-blue-100" : ""}`}
+                  onClick={() => handleChatSelect(chat.chatId)}
+                >
+                  <CircleIcon className="w-3 h-3 inline-block mr-2" />
+                  {chat.question.length > 10 ? `${chat.question.substring(0, 10)}...` : chat.question}
                 </div>
               ))}
             </div>
           )}
+          <button
+            onClick={handleSettingsClick}
+            className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70"
+          >
+            <SettingsIcon className="w-5 h-5" />
+            Settings
+          </button>
+        </aside>
+
+        <main className="flex-1 p-6 overflow-y-auto">
+          {showNewChatPage && <NewChatPage onStartNewChat={handleNewChatClick} />}
+          {showSettings && <SettingsPage />}
           {!showNewChatPage && !showSettings && (
-            <footer className="flex p-4 bg-gray-100 rounded-b-lg">
-              <input
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                className="flex-1 bg-white rounded-l-lg border border-gray-300 p-2"
-                placeholder="Ask me anything..."
-              />
-              <Button
-                onClick={handleQuestionSubmit}
-                className="bg-[#FF9933] text-white rounded-r-lg p-2"
-              >
-                Send
-              </Button>
-            </footer>
+            <div className="flex flex-col h-full">
+              <div className="flex-1 overflow-y-auto">
+                <div className="flex flex-col space-y-4">
+                  {chatMessages.map((message, index) => (
+                    <div key={index} className="flex flex-col space-y-2">
+                      <div className="bg-blue-100 p-3 rounded-md shadow-lg">
+                        {message.question}
+                      </div>
+                      {message.answer && (
+                        <div className="bg-gray-100 p-3 rounded-md shadow-lg">
+                          {parse(message.formattedAnswer)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {pendingQuestion && (
+                    <div className="bg-blue-100 p-3 rounded-md shadow-lg">
+                      {pendingQuestion}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center p-4 bg-gray-100 border-t border-gray-300">
+                <input
+                  type="text"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  className="flex-1 p-2 border border-gray-300 rounded-lg"
+                  placeholder="Ask a question..."
+                />
+                <Button
+                  onClick={handleQuestionSubmit}
+                  className="ml-4"
+                >
+                  Send
+                </Button>
+              </div>
+            </div>
           )}
         </main>
       </div>
