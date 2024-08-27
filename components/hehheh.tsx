@@ -16,7 +16,6 @@ interface Chat {
   preview: string; 
 }
 
-
 interface ChatMessage {
   question: string;
   answer: string;
@@ -26,7 +25,6 @@ interface ChatMessage {
 interface NewChatPageProps {
   onStartNewChat: () => void;
 }
-
 
 // Function to convert Markdown-like notations to HTML
 const formatText = (text: string): string => {
@@ -58,7 +56,7 @@ export default function Chatbot() {
   const [showNewChatPage, setShowNewChatPage] = useState(false);
   const [lastChatId, setLastChatId] = useState<number | null>(null); // Track the last chat ID
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null); 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
 
   const { user } = useUser();
 
@@ -81,25 +79,24 @@ export default function Chatbot() {
   }, [userEmail]);
 
   useEffect(() => {
-    const keepServerAlive = async () => {
+    // Run this useEffect when the component first mounts to make a "useless" API call
+    const keepServerActive = async () => {
       try {
-        await fetch('https://doj-backend.onrender.com/api/get-initial-chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email: "" }),
+        await fetch('https://doj-backend.onrender.com/api/keep-alive', {
+          method: 'GET',
         });
+        // Simulate a 60-second loading period
+        setTimeout(() => {
+          setLoading(false);
+        }, 60000); // 60 seconds
       } catch (err) {
-        console.error('Error keeping the server alive:', err);
+        console.error('Error keeping server active:', err);
+        setLoading(false); // Stop loading in case of error
       }
     };
 
-    const intervalId = setInterval(keepServerAlive, 10 * 60 * 1000); // Hit the API every 10 minutes
-
-    // Clean up interval on component unmount
-    return () => clearInterval(intervalId);
-  }, []); // Empty dependency array means this effect runs once when the component mounts
+    keepServerActive();
+  }, []);
 
   const startNewChat = async (chatId: number) => {
     try {
@@ -114,12 +111,9 @@ export default function Chatbot() {
       console.error('Error starting new chat:', err);
     }
   };
-  
 
   const fetchChatHistory = async () => {
     try {
-      if (!userEmail) return; // Prevent fetching without an email
-
       const res = await fetch('https://doj-backend.onrender.com/api/get-initial-chat', {
         method: 'POST',
         headers: {
@@ -128,23 +122,23 @@ export default function Chatbot() {
         body: JSON.stringify({ email: userEmail }),
       });
       const data = await res.json();
-  
+
       const formattedData = data.map((item: any) => ({
         ...item,
         chatId: parseInt(item.chatId, 10),
         preview: item.question.length > 30 ? `${item.question.slice(0, 30)}...` : item.question, // Create a preview
       }));
-  
+
       setChatHistory(formattedData);
-  
+
       if (formattedData.length > 0) {
         const lastChat = formattedData[formattedData.length - 1];
         setLastChatId(lastChat.chatId); // Update the last chat ID
         setCurrentChat(lastChat.chatId);
         fetchChatMessages(lastChat.chatId);
       } else {
-        const initialChatId = generateRandomChatId(); // Start from 1 or the next available ID
-        setLastChatId(initialChatId); // Initialize with 1 if no chats exist
+        setLastChatId(1); // Initialize with 1 if no chats exist
+        const initialChatId = 1; // Start from 1 or the next available ID
         setCurrentChat(initialChatId);
         await startNewChat(initialChatId);
       }
@@ -152,7 +146,7 @@ export default function Chatbot() {
       console.error('Error fetching chat history:', err);
     }
   };
-  
+
   const fetchChatMessages = async (chatId: number) => {
     try {
       const res = await fetch(`https://doj-backend.onrender.com/api/get-chat-messages`, {
@@ -210,7 +204,7 @@ export default function Chatbot() {
       setShowNewChatPage(true);
       setShowChatHistory(false);
       setShowSettings(false);
-  
+
       const newChatId = (lastChatId ?? 0) + 1; // Increment from the last chat ID
       setLastChatId(newChatId); // Update the last chat ID
 
@@ -226,15 +220,13 @@ export default function Chatbot() {
         ...prevHistory,
         { chatId: newChatId, question: 'New Chat Started', preview: 'New Chat Started' }, // Ensure preview is provided
       ]);
-  
+
       setChatMessages([]);
       setCurrentChat(newChatId);
     } catch (err) {
       console.error('Error starting new chat:', err);
     }
   };
-  
-
 
   const handleChatHistoryClick = () => {
     setShowChatHistory(!showChatHistory);
@@ -254,110 +246,99 @@ export default function Chatbot() {
   };
 
   return (
-    <div className="flex flex-col h-[90vh] w-[1000px] mx-auto bg-[#FFFFFF] rounded-2xl shadow-2xl">
-      <header className="flex items-center justify-between w-full bg-[#FF9933] text-white py-4 px-6 rounded-t-lg">
-        <h1 className="text-2xl font-bold">Department of Justice Chatbot</h1>
-        <UserButton />
-      </header>
-
-      <div className="flex flex-1 overflow-hidden">
-      <aside className="w-[30%] bg-gray-100 p-4 space-y-4 rounded-l-lg overflow-y-auto">
-        <button
-          onClick={handleNewChatClick}
-          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70 hover:w-full"
-        >
-          <FaPlus className="w-5 h-5" />
-          New Chat
-        </button>
-        <button
-          onClick={handleChatHistoryClick}
-          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70 hover:w-full"
-        >
-          <MessageCircleIcon className="w-5 h-5" />
-          Chat History
-          <span className={`transition-transform ${showChatHistory ? "rotate-180" : ""}`}>
-            ▼
-          </span>
-        </button>
-        {showChatHistory && (
-          <div className="mt-4">
-            {chatHistory.map(chat => (
-              <button
-                key={chat.chatId}
-                onClick={() => handleChatSelect(chat.chatId)}
-                className="w-[300px] flex items-center gap-2 px-3 py-2 text-[#1E293B] hover:bg-[#D1D5DB]/70 rounded-md"
-              >
-                <CircleIcon className="w-5 h-5" />
-                {`${chat.preview}`}
-              </button>
-            ))}
-
+    <div className="flex flex-col h-[90vh] w-[1000px] mx-auto bg-[#f0f0f0] rounded-lg shadow-lg p-4 overflow-hidden">
+      {loading ? (
+        <div className="flex justify-center items-center h-full">
+          <LoadingIcon className="animate-spin text-blue-500" size={48} />
+          <span className="ml-2 text-blue-500 font-semibold">Loading...</span>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Chatbot</h1>
+            <UserButton afterSignOutUrl="/" />
           </div>
-        )}
-
-        <button
-          onClick={handleSettingsClick}
-          className="flex items-center gap-2 text-[#1E293B] hover:text-[#1E293B]/80 rounded-md px-3 py-2 transition-colors bg-[#F1F5F9]/50 hover:bg-[#D1D5DB]/70 hover:w-full"
-        >
-          <SettingsIcon className="w-5 h-5" />
-          Settings
-        </button>
-      </aside>
-
-        <main className="flex-1 p-6 overflow-y-auto">
-        {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <LoadingIcon className="animate-spin h-10 w-10 text-[#FF9933]" />
-            </div>
-          ) : (
-            <>
-        {showNewChatPage && <NewChatPage onStartNewChat={() => setShowNewChatPage(false)} />}
-          {showSettings && <SettingsPage />}
-          {!showSettings && (
-            <div className="flex flex-col h-full">
-              <div className="flex-1 overflow-y-auto">
-                <div className="flex flex-col space-y-4">
-                  {chatMessages.map((message, index) => (
-                    <div key={index} className="flex flex-col space-y-2">
-                      <div className="bg-blue-100 p-3 rounded-md shadow-lg">
-                        {message.question}
-                      </div>
-                      {message.answer && (
-                        <div className="bg-gray-100 p-3 rounded-md shadow-lg">
-                          {parse(message.formattedAnswer)}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {/* {pendingQuestion && (
-                    <div className="bg-blue-100 p-3 rounded-md shadow-lg">
-                      {pendingQuestion}
-                    </div>
-                  )} */}
-                </div>
+          <div className="flex-1 overflow-auto mt-4">
+            {currentChat && chatMessages.length > 0 ? (
+              <div className="bg-white p-4 rounded-lg shadow-sm">
+                {chatMessages.map((message, index) => (
+                  <div key={index} className="mb-4">
+                    <div className="text-blue-600 font-semibold">You:</div>
+                    <div>{message.question}</div>
+                    <div className="text-blue-600 font-semibold mt-2">Bot:</div>
+                    <div>{parse(message.formattedAnswer)}</div>
+                  </div>
+                ))}
               </div>
-              
-              <div className="flex items-center p-4 bg-gray-100">
-                <input
-                  type="text"
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") {handleQuestionSubmit();}}}
-                  className="flex-1 p-2 border border-gray-300 rounded-lg"
-                  placeholder="Ask a question..."
-                />
-                <Button
-                  onClick={handleQuestionSubmit}
-                  className="ml-4"
+            ) : (
+              <div className="text-gray-600 text-center">
+                {pendingQuestion ? "Awaiting response..." : "No messages yet."}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center mt-4">
+            <input
+              className="flex-1 p-2 border border-gray-300 rounded-lg"
+              type="text"
+              placeholder="Ask a question..."
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+            />
+            <button
+              className="ml-2 bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600"
+              onClick={handleQuestionSubmit}
+            >
+              Submit
+            </button>
+          </div>
+          <div className="flex justify-between mt-4">
+            <button
+              className="bg-gray-200 p-2 rounded-lg hover:bg-gray-300"
+              onClick={handleChatHistoryClick}
+            >
+              <MessageCircleIcon className="inline-block mr-2" /> Chat History
+            </button>
+            <button
+              className="bg-gray-200 p-2 rounded-lg hover:bg-gray-300"
+              onClick={handleSettingsClick}
+            >
+              <SettingsIcon className="inline-block mr-2" /> Settings
+            </button>
+            <button
+              className="bg-gray-200 p-2 rounded-lg hover:bg-gray-300"
+              onClick={handleNewChatClick}
+            >
+              <FaPlus className="inline-block mr-2" /> New Chat
+            </button>
+          </div>
+          {showChatHistory && (
+            <div className="mt-4 bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex justify-between">
+                <h2 className="text-xl font-bold">Chat History</h2>
+                <button
+                  className="text-red-500 hover:text-red-600"
+                  onClick={() => setShowChatHistory(false)}
                 >
-                  Send
-                </Button>
+                  <XIcon size={20} />
+                </button>
               </div>
+              <ul className="mt-4">
+                {chatHistory.map((chat) => (
+                  <li
+                    key={chat.chatId}
+                    className="mb-2 p-2 border rounded-lg hover:bg-gray-100 cursor-pointer"
+                    onClick={() => handleChatSelect(chat.chatId)}
+                  >
+                    {chat.preview}
+                  </li>
+                ))}
+              </ul>
             </div>
-            )}</>
           )}
-        </main>
-      </div>
+          {showSettings && <SettingsPage />}
+          {showNewChatPage && <NewChatPage onStartNewChat={handleNewChatClick} />}
+        </>
+      )}
     </div>
   );
 }
